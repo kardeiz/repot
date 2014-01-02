@@ -117,17 +117,20 @@ module Repot
             else yield val, attribute end
           else val end
         end
-      end
-      
+      end      
         
     end    
-      
+    
+    def iterate_over_attributes(&block)
+      self.class.iterate_over_attribute_set(self, &block)
+    end
+    
     def default_id
       RDF::URI("urn:uuid:#{SecureRandom.uuid}").to_s
     end
     
     def as_indexed_json
-      self.class.iterate_over_attribute_set(self) do |o, _|
+      iterate_over_attribute_set do |o, _|
         o.as_indexed_json
       end
     end
@@ -135,17 +138,17 @@ module Repot
     def json_ld_header
       { 
         '@context' => self.class.context, '@id' => self.id
-      }.merge(self.class.type ? {'@type' => self.class.type} : {})
+      }.merge(self.class.type ? { '@type' => self.class.types } : {})
     end
     
     def as_json_ld_lite
-      self.class.iterate_over_attribute_set(self) do |o, _|
+      iterate_over_attribute_set do |o, _|
         o.id
       end.stringify_keys.merge(json_ld_header)
     end
     
     def as_json_ld_full
-      self.class.iterate_over_attribute_set(self) do |o, _|
+      iterate_over_attribute_set do |o, _|
         o.as_json_ld_full
       end.stringify_keys.merge(json_ld_header)
     end
