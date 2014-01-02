@@ -61,7 +61,7 @@ module Repot
       
       define_model_callbacks :save, :destroy, :create, :update
 
-      attribute :id, String, :default => :default_id, :predicate => RDF::DC.identifier
+      attribute :id, String, :default => :default_id
       
     end
 

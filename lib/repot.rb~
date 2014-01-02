@@ -13,7 +13,7 @@ require 'rdf/rdfxml'
 require 'sparql/client'
 require 'nokogiri'
 require 'json/ld'
-require 'uuidtools'
+
 
 module Repot
 

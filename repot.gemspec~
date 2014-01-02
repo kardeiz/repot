@@ -23,7 +23,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency     'rdf',            '~> 1.1'
   spec.add_runtime_dependency     'sparql' #,         '~> 1.1'
   spec.add_runtime_dependency     'sparql-client' #,  '~> 1.1'
-  spec.add_runtime_dependency     'uuidtools'
   spec.add_runtime_dependency     'rdf-rdfxml'
   spec.add_runtime_dependency     'nokogiri'
   spec.add_runtime_dependency     'activemodel',    '~> 3.1'

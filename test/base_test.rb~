@@ -71,7 +71,7 @@ describe Repot do
   end
  
   it "must do as_indexed_json" do
-    puts @tester.as_rdf_lite.dump(:rdfxml)
+    puts @tester.as_rdf_full.dump(:rdfxml)
   end
  
 #  it "must be defined" do
