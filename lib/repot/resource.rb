@@ -66,39 +66,21 @@ module Repot
             '@type' => TypeMapper.map(v[:type])
           }.merge(v[:serialize] ? {'@container' => '@set'} : {})
         end
-      end
-            
-      def properties; @properties ||= {}; end
+      end      
       
-      def associations
-        @associations ||= properties.select{ |k,v| v[:association] }
-      end
-      
-      def property(name, options = {})
-        properties[name] = options        
+      def property(name, type, options = {})  
         define_attribute_method name
-        attribute(name, options[:serialize] ? Array[options[:type]] : options[:type])
+        attribute(name, type, options)
         define_method "#{name}=" do |val|
           self.send("#{name}_will_change!") unless val == self.send(name)
           super(val)
         end
       end
-    
-      def has_one(name, options = {})
-        property(name, options.merge(:association => true))
-        define_method("#{name}_id") { send(name).id }
-        define_method("#{name}_id=") do |id|
-          send("#{name}=", options[:type].find(id))
-        end
-      end
-    
-      def has_many(name, options = {})
-        property(name, options.merge({
-          :association => true, :serialize => true
-        }))
-        define_method("#{name.to_s.singularize}_ids") { send(name).map(&:id) }
-        define_method("#{name.to_s.singularize}_ids=") do |ids|
-          send("#{name}=", ids.map{|x| options[:type].find(x)})
+      
+      def iterate_over_attributes(hash = {}, &block)
+        attribute_set.each_with_object(hash) do |a, obj|
+          next if obj[a.name].nil?
+          if Virtus::Attribute::Collection === a && a.member_type.primitive <= Repot::Resource
         end
       end
     
