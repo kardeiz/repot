@@ -29,4 +29,10 @@ module Repot
     @repository ||= (self.config.repository || RDF::Repository.new)
   end
   
+  def self.sparql_client
+    @sparql_client ||= SPARQL::Client.new(repository)
+  end
+  
+  
+  
 end

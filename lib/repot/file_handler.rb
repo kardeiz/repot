@@ -7,8 +7,7 @@ module Repot
     process :set_content_type
     
     def root
-      default = ::File.expand_path('../../..', __FILE__)
-      Repot.config.file_root || default
+      Repot.config.file_root || ::File.expand_path('../../..', __FILE__)
     end
     
     def store_dir

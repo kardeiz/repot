@@ -1,27 +1,13 @@
 require 'test_helper'
 require 'repot'
+require 'video'
 
 describe Repot do
  
   before do
     Repot.config.file_root = File.expand_path('..', __FILE__)    
+    @video = Video.new(:title => 'This is your test object.')
     
-    class AssoTester
-      include Repot::Resource      
-      type default_type
-      
-      attribute :subject, Array[String], :predicate => RDF::DC.subject
-    end
-    
-    class Tester
-      include Repot::Resource      
-      type default_type
-      
-      attribute :title, String, :predicate => RDF::DC.title
-      attribute :asso_tester, AssoTester, :predicate => RDF::URI('info:repository/tester')
-    end
-    
-    @tester = Tester.new(:title => 'test', :asso_tester => { :subject => ['t1', 't2']})
 #    class Book
 #      include Repot::Resource
 #      configure :base_uri => default_base_uri, :type => default_type
@@ -58,21 +44,29 @@ describe Repot do
   end
  
   it "type test" do
-    @tester.class.type.must_equal "info:repository/tester"
+    @video.save
+    @video2 = Video.new(:title => 'This is your test object.')
+    puts @video.as_json_ld_lite
+    puts @video2.as_json_ld_lite
   end
   
-  it "empty base uri" do
-    @tester.class.base_uri.must_be_nil
-  end
+#  it "empty base uri" do
+#    @tester.class.base_uri.must_be_nil
+#  end
+# 
+#  it "must have default id" do
+#    # @tester.default_id.must_match /^urn:uuid:/
+#    #puts @tester.class.context
+#  end
+# 
+#  it "must do as_indexed_json" do
+#    # puts @tester.as_rdf_full.dump(:rdfxml)
+#    @tester.save
+#    puts @tester.as_rdf_lite.dump(:rdfxml)
+#    puts Repot.repository.dump(:rdfxml)
+#  end
  
-  it "must have default id" do
-    @tester.default_id.must_match /^urn:uuid:/
-    #puts @tester.class.context
-  end
- 
-  it "must do as_indexed_json" do
-    puts @tester.as_rdf_lite.dump(:rdfxml)
-  end
+  
  
 #  it "must be defined" do
 #    Repot::VERSION.wont_be_nil

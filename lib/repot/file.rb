@@ -6,9 +6,11 @@ module Repot
       include Resource
       
       mount_uploader :file, FileHandler, :mount_on => :file_name      
-      property :file_name, {
-        :predicate => RDF::URI('info:repository/file-name'), :type => String
+      
+      property :file_name, String, {
+        :predicate => RDF::URI('info:repository/file-name')
       }
+      
       def as_indexed_json
         super.merge('file_url' => self.file.url, 'file_path' => self.file.path)
       end 
