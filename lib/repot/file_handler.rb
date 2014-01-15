@@ -10,13 +10,8 @@ module Repot
       Repot.config.file_root || ::File.expand_path('../../..', __FILE__)
     end
     
-    def store_dir
-      ::File.join(root, 'files', model.id)
-    end
-    
-    def cache_dir
-      ::File.join(store_dir, 'cache')
-    end
+    def store_dir; ::File.join(root, 'uploads', model.id); end
+    def cache_dir; ::File.join(root, 'cache', 'tmp'); end
     
   end
 end

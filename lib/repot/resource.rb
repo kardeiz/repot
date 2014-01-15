@@ -2,194 +2,257 @@ module Repot
   module Resource
     extend ActiveSupport::Concern
     
-    class AttributeWrapper
-    
-      def initialize(attribute)
-        @attribute = attribute
-      end
-      
-      def is_collection?
-        Virtus::Attribute::Collection === @attribute
-      end
-      
-      def is_association?
-        klass <= Repot::Resource
-      end
-      
-      def name; @attribute.name; end
-      
-      def predicate
-        @attribute.options[:predicate].to_s
-      end
-      
-      def klass
-        @klass ||= if is_collection?
-          @attribute.member_type.primitive
-        else
-          @attribute.type.primitive
-        end
-      end
-      
-      def datatype
-        case
-        when klass <= Integer     then RDF::XSD.integer.to_s
-        when klass <= DateTime    then RDF::XSD.dateTime.to_s
-        when klass <= Repot::Resource then '@id'
-        end
-      end
-    
-      def context
-        Hash.new.tap do |o| 
-          o['@id']        = predicate
-          o['@type']      = datatype if datatype
-          o['@container'] = '@set' if is_collection?
-        end
-      end
-    
-    end
-    
-
     included do
       extend ActiveModel::Callbacks
       extend ActiveModel::Naming
       include ActiveModel::Conversion
       include ActiveModel::Dirty
       include ActiveModel::Validations
-      include Virtus.model
+      include ActiveModel::Serialization
       
       define_model_callbacks :save, :destroy, :create, :update
-
-      property :id, String, {
-        :default => :default_id, :predicate => RDF::DC.identifier
-      }
       
       before_save do
-        iterate_over_attributes { |o, _| o.save }
+        self.id = default_id if id.blank?
+        send_to_associations(:save)
+      end
+      
+      property :id, {
+        :predicate => RDF::DC.identifier
+      }
+      
+    end    
+
+    class Property
+        
+      attr_accessor :name, :predicate, :datatype, :multiple, :default
+    
+      def initialize(name, opts = {})
+        @name = name
+        [ :predicate, :datatype, :multiple, :coercer, :default ].each do |x|
+          instance_variable_set("@#{x}", opts.fetch(x, nil))
+        end
+      end
+    
+      def coerce(input)
+        if multiple
+          Array.wrap(input).map { |x| coercer.call(x) }
+        else coercer.call(input) end
+      end
+    
+      def coercion_method
+        case datatype.to_s
+        when RDF::XSD.integer.to_s  then :to_i
+        when RDF::XSD.dateTime.to_s then :to_datetime
+        else :to_s end
+      end
+          
+      def coercer
+        @coercer ||= lambda do |input|
+          input.send(coercion_method) if input
+        end
+      end
+    
+      def context
+        @context ||= Hash.new.tap do |o|
+          o['@id']        = predicate.to_s
+          o['@type']      = datatype.to_s if datatype
+          o['@container'] = '@set' if multiple
+        end
+      end    
+    end
+
+    class PropertySet
+    
+      include Enumerable
+      
+      def initialize(*properties)
+        @index = Hash.new
+        properties.each {|prop| self << prop }
+      end
+    
+      def each(&block); @index.values.each(&block); end      
+      def <<(property); @index[property.name] = property; end
+      def [](key); @index[key]; end
+      def keys; @index.keys; end      
+      
+      def context
+        @context ||= each_with_object({}) do |property, acc|
+          acc[property.name.to_s] = property.context
+        end
       end
     end
 
+
     module ClassMethods
-    
-      def type(setter = nil)
-        setter ? types << setter : types.first
-      end
       
       def types; @types ||= []; end 
-      
-      def base_uri(setter = nil)
-        setter ? @base_uri = setter : (@base_uri ||= nil)
-      end
+      def base_uri; @base_uri; end
+      def base_uri=(val); @base_uri = val; end
+
+      def associations; @associations ||= []; end
+      def property_set; @property_set ||= PropertySet.new; end
+    
+      def context; property_set.context; end
     
       def default_type
         @default_type ||= "info:repository/#{self.name.tableize.singularize}"
       end
       
-      def property(name, type = nil, options = {})
-        assert_valid_name(name)
+      def build(input); input.is_a?(String) ? find(input) : new(input); end
+      
+      def define_nested_class(klass, &block)
+        class_eval "class #{klass}; include Repot::Resource; end"        
+        self.const_get(klass).tap do |o|
+          o.class_eval(&block) if block_given?
+        end
+      end
+      
+      def has_many_nested(name, opts, &block)
+        klass = define_nested_class(name.to_s.classify, &block)
+        has_many name, opts.merge(:via => klass)      
+      end
+      
+      def has_one_nested(name, opts, &block)
+        klass = define_nested_class(name.to_s.classify, &block)
+        has_one name, opts.merge(:via => klass)      
+      end
+      
+      def has_one(name, opts = {})
+        klass = opts.delete(:via)
+        property(name, opts.merge({
+          :datatype => '@id', 
+          :coercer  => lambda {|x| klass.build(x) }
+        }))
+        self.associations << name
+      end
+      
+      def has_many(name, opts = {})
+        klass = opts.delete(:via)
+        property(name, opts.merge({
+          :datatype => '@id', 
+          :multiple => true,
+          :coercer  => lambda {|x| klass.build(x) }
+        }))
+        self.associations << name
+      end
+      
+      def property(name, opts = {})
         define_attribute_method name
-        Virtus::Attribute.build(type, options.merge(:name => name)).tap do |o|
-          attribute_set << o
-          define_method "#{name}=" do |val|
-            send("#{name}_will_change!") unless val == send(name)
-            super(val)
-          end if o.public_writer?
-        end
-        self
-      end
-            
-      def public_attribute_set
-        attribute_set.select(&:public_reader?).map{|x| AttributeWrapper.new(x) }
+        define_accessor_methods name
+        property_set << Property.new(name, opts)
       end
       
-      def association_attribute_set
-        public_attribute_set.select(&:is_association?)
+      def define_accessor_methods(name)   
+        define_method(name) { get(name) }
+        define_method("#{name}=") { |val| set(name, val) }
       end
       
-      def context        
-        public_attribute_set.each_with_object({}) do |attribute, acc|
-          acc[attribute.name.to_s] = attribute.context
-        end
-      end      
-      
-      def iterate_over_attribute_set(object, &block)
-        association_attribute_set.each_with_object(object) do |attribute, acc|
-          next unless (val = acc[attribute.name]) && !val.blank?
-          acc[attribute.name] = if attribute.is_collection?
-            val.map{|x| yield x, attribute }
-          else yield val, attribute end
-        end
-      end      
-      
-      def from_jsonld(object)
-        hash = iterate_over_attribute_set(object.symbolize_keys) do |o, v|
-          v.klass.find(o)
-        end
-        self.new(hash).tap do |o|
-          o.changed_attributes.clear
-        end
+      def from_json_ld(object)
+        self.new(object).tap { |o| o.changed_attributes.clear }
       end
       
       def find(uri)
         query = Repot.repository.query(:subject => RDF::URI(uri))
         res = JSON.parse(query.dump(:jsonld, :context => self.context))
-        self.from_jsonld(res)
+        self.from_json_ld(res)
       end
       
     end    
     
-    def iterate_over_attributes(&block)
-      self.class.iterate_over_attribute_set(attributes, &block)
+    def property_set; self.class.property_set; end
+    
+    def get(name); instance_variable_get(:"@#{name}"); end
+    
+    def set(name, val)
+      val = property_set[name].coerce(val)
+      send("#{name}_will_change!") unless val == get(name)
+      instance_variable_set(:"@#{name}", val)
     end
     
-    def default_id
-      SecureRandom.uuid
-    end
-    
-    def uri
-      RDF::URI("urn:uuid:#{id}").to_s
-    end
-    
-    def as_indexed_json
-      iterate_over_attributes do |o, _|
-        o.as_indexed_json
+    alias_method :[],   :get
+    alias_method :[]=,  :set
+        
+    def initialize(opts = {})
+      set_default_values
+      opts.each do |k,v|
+        send("#{k}=", v) if respond_to?("#{k}=")
       end
     end
     
+    def set_default_values
+      property_set.each do |prop|
+        val = send(prop.default) if prop.default
+        set(prop.name, val)
+      end
+    end
+    
+    def iterate_over_associations(&block)
+      self.class.associations.each_with_object({}) do |name, acc|
+        next unless val = send(name)
+        acc[name.to_s] = if val.respond_to?(:to_ary) 
+          val.map{|x| yield x }
+        else yield val end
+      end
+    end
+    
+    def send_to_associations(meth)
+      iterate_over_associations {|o| o.send(meth) }
+    end
+    
+    def as_indexed_json
+      attributes.merge(send_to_associations(:as_indexed_json))
+    end
+    
+    def to_indexed_json; as_indexed_json.to_json; end
+    
     def json_ld_header
-      { 
-        '@context' => self.class.context, '@id' => self.uri
-      }.merge(self.class.type ? { '@type' => self.class.types } : {})
+      Hash.new.tap do |o|
+        o['@context'] = self.class.context
+        o['@id'] = self.uri
+        o['@type'] = self.class.types.map(&:to_s) unless self.class.types.empty?
+      end
     end
     
     def as_json_ld_lite
-      iterate_over_attributes do |o, _|
-        o.uri
-      end.stringify_keys.merge(json_ld_header)
+      attributes.merge(send_to_associations(:uri)).merge(json_ld_header)
     end
     
     def as_json_ld_full
-      iterate_over_attributes do |o, _|
-        o.as_json_ld_full
-      end.stringify_keys.merge(json_ld_header)
+      attributes.merge(send_to_associations(:as_json_ld_full)).merge(json_ld_header)
     end
-   
-    def as_rdf_lite
-      JSON::LD::API.toRdf(self.as_json_ld_lite)
-    end   
     
-    def as_rdf_full
-      JSON::LD::API.toRdf(self.as_json_ld_full)
-    end 
-   
+    def as_rdf_lite; JSON::LD::API.toRdf(self.as_json_ld_lite); end   
+    
+    def as_rdf_full; JSON::LD::API.toRdf(self.as_json_ld_full); end 
+        
+    def attributes
+      property_set.keys.each_with_object({}) do |key, acc|
+        acc[key.to_s] = send(key)
+      end
+    end
+    
+    def default_id; SecureRandom.uuid; end
+    
+    def uri; RDF::URI("urn:uuid:#{id}").to_s unless id.nil?; end
+    
+    def persist
+      @previously_changed = changes
+      changed_attributes.clear
+      Repot.repository.insert(as_rdf_lite)
+    end    
+    
+    def destroy
+      run_callbacks :destroy do
+        Repot.repository.delete(as_rdf_lite)
+        self
+      end    
+    end
+    
     def save
       run_callbacks :save do
-        self.tap do |o|
-          if o.changed?
-            @previously_changed = o.changes
-            o.changed_attributes.clear
-            Repot.repository << o.as_rdf_lite
-          end
-        end
+        persist if changed?
+        self
       end
     end
     

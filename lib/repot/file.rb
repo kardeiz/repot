@@ -3,11 +3,12 @@ module Repot
     extend ActiveSupport::Concern
     
     included do
+    
       include Resource
       
       mount_uploader :file, FileHandler, :mount_on => :file_name      
       
-      property :file_name, String, {
+      property :file_name, {
         :predicate => RDF::URI('info:repository/file-name')
       }
       

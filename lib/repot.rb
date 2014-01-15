@@ -4,7 +4,7 @@ require 'carrierwave'
 require 'carrierwave/validations/active_model'
 require 'carrierwave/processing/mime_types'
 
-require 'active_support'
+require 'active_support/all'
 require 'active_model'
 
 require 'virtus'
