@@ -2,20 +2,8 @@ module Repot
   module File
     extend ActiveSupport::Concern
     
-    included do
-    
-      include Resource
-      
-      mount_uploader :file, FileHandler, :mount_on => :file_name      
-      
-      property :file_name, {
-        :predicate => RDF::URI('info:repository/file-name')
-      }
-      
-      def as_indexed_json
-        super.merge('file_url' => self.file.url, 'file_path' => self.file.path)
-      end 
-      
+    included do    
+      include Resource      
     end
     
     module ClassMethods

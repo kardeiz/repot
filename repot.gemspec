@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.require_paths = ['lib'] #  'test' 
   
-  spec.add_runtime_dependency     'rdf' #, '1.1.0.1' #     '~> 1.1'       #  '1.0.10.2' #  
+  spec.add_runtime_dependency     'rdf', '~> 1.1'       #    # , '1.0.10.2' #   #, '1.1.0.1' #    
   spec.add_runtime_dependency     'sparql' #,         '~> 1.1'
   spec.add_runtime_dependency     'sparql-client' #,  '~> 1.1'
   spec.add_runtime_dependency     'uuidtools'
@@ -31,7 +31,9 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency     'virtus',         '~> 1.0'
   spec.add_runtime_dependency     'carrierwave'
   spec.add_runtime_dependency     'json-ld' #, '1.0.8.1'
+  spec.add_runtime_dependency     'equivalent-xml'
   spec.add_runtime_dependency     'mime-types'
+  spec.add_runtime_dependency     'promise'
   spec.add_development_dependency "bundler", "~> 1.3"
   spec.add_development_dependency "rake"
   spec.add_development_dependency "minitest"

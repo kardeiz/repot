@@ -1,29 +1,34 @@
 # Repot
 
-TODO: Write a gem description
+A small library for using RDF for persisting Ruby model objects. It's somewhat incomplete, since `RDF.rb` is not performative enough for my use case. However, for simple, metadata-based objects, this could be a nice persistence layer.
 
-## Installation
+It does 90% of what [Spira](https://github.com/ruby-rdf/spira) does and more (e.g., file management via Carrierwave) in far fewer lines of code.
 
-Add this line to your application's Gemfile:
+Use it like:
 
-    gem 'repot'
+```ruby
+class Video
 
-And then execute:
+include Repot::Resource
+   
+property :title, :predicate => RDF::DC.title
+     
+# Can have multiple values for a field
+property :subjects, :predicate => RDF::DC.subject, :multiple => true
 
-    $ bundle
+# Define associations (has_many or has_one)
+has_one :interview, {
+  :predicate => RDF::URI('info:repository/has-interview'), 
+  :via => Interview
+}
 
-Or install it yourself as:
+# Also provides "nested" pseudo-embedded-style associations for convenience
+has_many_nested :locations, :predicate => RDF::DC.spatial do
+  property :value, :predicate => RDF.value
+  property :latitude, :predicate => 'info:repository/latitude', :datatype => RDF::XSD.float
+  property :longitude, :predicate => 'info:repository/longitude', :datatype => RDF::XSD.float
+end
+```
 
-    $ gem install repot
+It also plays nicely with Tire. 
 
-## Usage
-
-TODO: Write usage instructions here
-
-## Contributing
-
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
