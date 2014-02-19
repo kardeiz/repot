@@ -9,24 +9,25 @@ Use it like:
 ```ruby
 class Video
 
-include Repot::Resource
-   
-property :title, :predicate => RDF::DC.title
+  include Repot::Resource
      
-# Can have multiple values for a field
-property :subjects, :predicate => RDF::DC.subject, :multiple => true
+  property :title, :predicate => RDF::DC.title
+       
+  # Can have multiple values for a field
+  property :subjects, :predicate => RDF::DC.subject, :multiple => true
 
-# Define associations (has_many or has_one)
-has_one :interview, {
-  :predicate => RDF::URI('info:repository/has-interview'), 
-  :via => Interview
-}
+  # Define associations (has_many or has_one)
+  has_one :interview, {
+    :predicate => RDF::URI('info:repository/has-interview'), 
+    :via => Interview
+  }
 
-# Also provides "nested" pseudo-embedded-style associations for convenience
-has_many_nested :locations, :predicate => RDF::DC.spatial do
-  property :value, :predicate => RDF.value
-  property :latitude, :predicate => 'info:repository/latitude', :datatype => RDF::XSD.float
-  property :longitude, :predicate => 'info:repository/longitude', :datatype => RDF::XSD.float
+  # Also provides "nested" pseudo-embedded-style associations for convenience
+  has_many_nested :locations, :predicate => RDF::DC.spatial do
+    property :value, :predicate => RDF.value
+    property :latitude, :predicate => 'info:repository/latitude', :datatype => RDF::XSD.float
+    property :longitude, :predicate => 'info:repository/longitude', :datatype => RDF::XSD.float
+  end
 end
 ```
 
